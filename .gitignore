@@ -8,3 +8,21 @@
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Private project documentation
+/docs/
+*.[mM][dD]
+!/README.md
+
+# Local dependencies and runtime output
+/vendor/
+/node_modules/
+/public/build/
+/public/hot
+/public/storage
+/database/*.sqlite*
+/storage/*.key
+/auth.json
+/.phpunit.result.cache
+/.phpunit.cache/
+/graphify-out/
