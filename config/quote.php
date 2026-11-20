@@ -3,6 +3,7 @@
 return [
     'owner_email' => env('QUOTE_OWNER_EMAIL'),
     'lookup_key' => env('QUOTE_LOOKUP_KEY'),
+    'discovery_url' => env('QUOTE_DISCOVERY_URL'),
     'rush_percent' => 20,
     'services' => [
         'website' => [

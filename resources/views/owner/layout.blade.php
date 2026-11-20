@@ -11,7 +11,10 @@
     <main class="owner-shell">
         @auth
             <header class="owner-bar">
-                <a href="{{ route('owner.index') }}">Quote requests</a>
+                <nav aria-label="Owner">
+                    <a href="{{ route('owner.index') }}">Quote requests</a>
+                    <a href="{{ route('owner.catalog') }}">Catalog</a>
+                </nav>
                 <form method="post" action="{{ route('owner.logout') }}">@csrf <button class="secondary">Sign out</button></form>
             </header>
         @endauth

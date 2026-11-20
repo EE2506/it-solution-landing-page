@@ -63,8 +63,11 @@ class OwnerController extends Controller
     public function show(Request $request, QuoteRequest $quote): View
     {
         Log::info('Owner opened quote request', ['owner' => $request->user()->id, 'reference' => $quote->reference]);
+        $root = $quote->series_id ?? $quote->id;
+        $history = QuoteRequest::where('id', $root)->orWhere('series_id', $root)
+            ->oldest('id')->paginate(20, ['id', 'reference', 'revises_id', 'created_at'], 'versions');
 
-        return view('owner.show', ['quote' => $quote->load('deliveries'), 'statuses' => self::STATUSES]);
+        return view('owner.show', ['quote' => $quote->load('deliveries'), 'statuses' => self::STATUSES, 'history' => $history]);
     }
 
     public function update(Request $request, QuoteRequest $quote): RedirectResponse

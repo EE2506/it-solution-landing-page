@@ -95,6 +95,16 @@ table { width: 100%; border-collapse: collapse; margin: 16px 0; }
 th, td { padding: 8px; border-bottom: 1px solid var(--rule); text-align: left; }
 .owner-shell pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 .notes { white-space: pre-wrap; }
+.owner-bar nav { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.catalog-section { margin: 24px 0; }
+.catalog-item, .comparison { border: 1px solid var(--rule); border-radius: 8px; padding: 12px 16px; margin: 12px 0; }
+.catalog-item summary, .comparison summary { min-block-size: 44px; }
+.catalog-item summary small { display: inline; margin-inline-start: 8px; }
+.budget-option { border-top: 1px solid var(--rule); padding: 12px 0; }
+.budget-results, .budget-option .actions { margin-top: 12px; }
+.revision-tag { color: var(--muted); overflow-wrap: anywhere; }
+.revision-tag a { display: inline-block; margin-inline-start: 8px; }
+.comparison .choice { margin-block: 4px; }
 
 @media (max-width: 719px) {
     .with-estimate .receipt { position: sticky; z-index: 1; bottom: 0; max-height: 45vh; overflow: auto; padding: 8px 12px; }

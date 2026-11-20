@@ -6,15 +6,20 @@ use Illuminate\Validation\ValidationException;
 
 class Estimate
 {
-    public function build(array $input): array
+    public function __construct(private QuoteCatalog $catalog) {}
+
+    public function build(array $input, ?array $catalog = null): array
     {
-        $catalog = config('quote');
-        $goal = $catalog['goals'][$input['goal'] ?? 'not_sure'];
+        $catalog ??= $this->catalog->active();
+        $goal = $catalog['goals'][$input['goal'] ?? ''] ?? [];
         $recommendation = ($input['goal'] ?? null) === 'appointments'
-            ? ($catalog['appointment_answers'][$input['appointment'] ?? 'unknown'])
+            ? ($catalog['appointment_answers'][$input['appointment'] ?? 'unknown'] ?? [])
             : $goal;
 
-        $service = $input['mode'] === 'direct' ? $input['service'] : $recommendation['service'];
+        $service = $input['mode'] === 'direct' ? $input['service'] : ($recommendation['service'] ?? '');
+        if (! isset($catalog['services'][$service])) {
+            throw ValidationException::withMessages(['service' => 'This starting point is unavailable. Go back and choose another service.']);
+        }
         $package = $catalog['services'][$service];
         $installation = $service === 'installation'
             ? ($input['installation'] ?? $recommendation['installation'] ?? null)
@@ -29,8 +34,8 @@ class Estimate
         }
 
         if ($service === 'installation') {
-            if ($installation === null) {
-                throw ValidationException::withMessages(['installation' => 'Choose what you need installed.']);
+            if ($installation === null || ! isset($catalog['installations'][$installation])) {
+                throw ValidationException::withMessages(['installation' => 'Choose an available installation.']);
             }
             $work = $catalog['installations'][$installation];
             $included[] = $work['description'];
@@ -81,6 +86,13 @@ class Estimate
             if ($id === 'sms' && ! in_array($input['sms_source'] ?? '', ['booking', 'calendar', 'other_event'], true)) {
                 $item['rate'] = null;
                 $item['description'] = 'Confirm which tool records the appointment time or event before pricing reminder setup';
+            }
+            foreach ($item['requires'] ?? [] as $required) {
+                if (! isset($catalog['addons'][$required]) || ($input['addons'][$required]['state'] ?? null) !== 'selected') {
+                    $item['rate'] = null;
+                    $item['description'] = 'Confirm prerequisites for '.$item['name'];
+                    break;
+                }
             }
             if ($id === 'booking' || ($id === 'sms' && $item['rate'] !== null)) {
                 $provider[] = $catalog['provider'][$id];

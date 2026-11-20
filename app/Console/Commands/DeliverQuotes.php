@@ -7,6 +7,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 
 class DeliverQuotes extends Command
@@ -41,11 +42,16 @@ class DeliverQuotes extends Command
         $recipient = $delivery->recipient === 'owner' ? $owner : $quote->contact['email'];
 
         try {
-            Mail::send('mail.quote', [
+            $accessLink = $delivery->recipient === 'access'
+                ? URL::temporarySignedRoute('estimates.open', now()->addMinutes(30), ['quote' => $quote->reference])
+                : null;
+            Mail::send($accessLink ? 'mail.estimate-access' : 'mail.quote', [
                 'quote' => $quote,
                 'isOwner' => $delivery->recipient === 'owner',
-            ], function ($message) use ($recipient, $quote): void {
-                $message->to($recipient)->subject('Project estimate '.$quote->reference);
+                'link' => $accessLink,
+                'reference' => $quote->reference,
+            ], function ($message) use ($recipient, $quote, $accessLink): void {
+                $message->to($recipient)->subject(($accessLink ? 'Your private estimate link ' : 'Project estimate ').$quote->reference);
             });
             $delivery->forceFill(['sent_at' => now()])->save();
         } catch (TransportExceptionInterface) {

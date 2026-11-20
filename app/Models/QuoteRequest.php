@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class QuoteRequest extends Model
 {
-    protected $fillable = ['reference', 'request_key', 'email_lookup', 'contact', 'snapshot', 'status', 'internal_notes'];
+    protected $fillable = ['reference', 'request_key', 'email_lookup', 'contact', 'snapshot', 'status', 'internal_notes', 'revises_id', 'series_id'];
 
     protected function casts(): array
     {

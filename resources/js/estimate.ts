@@ -29,8 +29,19 @@ export type Estimate = {
 };
 
 export type Preview = { estimate: Estimate; preview: string };
-export type Confirmation = { reference: string; delivery: 'Sent' | 'Pending' | 'Failed' };
+export type Confirmation = { reference: string; delivery: 'Sent' | 'Pending' | 'Failed'; url: string | null };
 export type Selection = 'selected' | 'later' | 'removed';
+export type ScopeAnswers = Partial<{
+    mode: 'guided' | 'direct'; goal: string | null; service: string | null;
+    appointment: string | null; installation: string | null; budget: string | null; timing: string | null;
+    features: string[]; staff_count: number | null; sms_source: string | null; booking_tool: string | null;
+    email_purpose: string | null; monthly: string[]; addons: Record<string, { state: Selection; quantity: number }>;
+    priority: boolean; priority_later: boolean;
+}>;
+export type Revision = {
+    reference: string; available: boolean; answers: ScopeAnswers; original: Estimate; retired: string[];
+    contact: { name: string; email: string; business?: string | null; notes?: string | null };
+};
 
 const pesos = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 0, maximumFractionDigits: 2 });
 

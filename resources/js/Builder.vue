@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from 'vue';
+import BudgetComparison from './BudgetComparison.vue';
+import EstimateDiff from './EstimateDiff.vue';
 import EstimateLines from './EstimateLines.vue';
-import { money, post, type Catalog, type Confirmation, type Preview, type Selection } from './estimate';
+import { money, post, type Catalog, type Confirmation, type Preview, type Revision, type Selection } from './estimate';
 
-const props = defineProps<{ catalog: Catalog; requestKey: string }>();
-const step = ref(0);
-const ready = ref(false);
+const props = defineProps<{ catalog: Catalog; requestKey: string; revision: Revision | null; discoveryUrl: string | null }>();
+const previous = props.revision?.answers;
+const previousContact = props.revision?.contact;
+const step = ref(props.revision?.available ? 1 : 0);
+const ready = ref(!!props.revision?.available);
 const heading = ref<HTMLElement | null>(null);
 const requestKey = ref(props.requestKey);
 const preview = ref<Preview | null>(null);
@@ -15,14 +19,16 @@ const loading = ref(false);
 const sending = ref(false);
 const error = ref('');
 const input = reactive({
-    mode: '' as '' | 'guided' | 'direct',
-    goal: '', service: '', appointment: '', installation: '', budget: '', timing: '',
-    features: [] as string[], staff_count: '' as number | '',
-    sms_source: '', booking_tool: '', email_purpose: '', monthly: [] as string[],
-    addons: Object.fromEntries(Object.keys(props.catalog.addons).map(id => [id, { state: 'removed' as Selection, quantity: 1 }])),
+    mode: (props.revision?.available ? previous?.mode ?? '' : '') as '' | 'guided' | 'direct',
+    goal: previous?.goal ?? '', service: previous?.service ?? '', appointment: previous?.appointment ?? '',
+    installation: previous?.installation ?? '', budget: previous?.budget ?? '', timing: previous?.timing ?? '',
+    features: previous?.features ?? [], staff_count: (previous?.staff_count ?? '') as number | '',
+    sms_source: previous?.sms_source ?? '', booking_tool: previous?.booking_tool ?? '',
+    email_purpose: previous?.email_purpose ?? '', monthly: previous?.monthly ?? [],
+    addons: Object.fromEntries(Object.keys(props.catalog.addons).map(id => [id, previous?.addons?.[id] ?? { state: 'removed' as Selection, quantity: 1 }])),
 });
-const contact = reactive({ name: '', email: '', business: '', notes: '' });
-const priority = ref<Selection>('removed');
+const contact = reactive({ name: previousContact?.name ?? '', email: previousContact?.email ?? '', business: previousContact?.business ?? '', notes: previousContact?.notes ?? '' });
+const priority = ref<Selection>(previous?.priority ? 'selected' : previous?.priority_later ? 'later' : 'removed');
 const appointment = computed(() => input.mode === 'guided' && input.goal === 'appointments');
 const goal = computed(() => props.catalog.goals[input.goal]);
 const service = computed(() => input.mode === 'direct' ? input.service
@@ -57,7 +63,7 @@ watch([estimateJson, ready], ([payload, active], _, onCleanup) => {
         clearTimeout(timer);
         controller.abort();
     });
-}, { flush: 'sync' });
+}, { flush: 'sync', immediate: true });
 
 function changeStart() {
     ready.value = false;
@@ -92,7 +98,10 @@ async function submit() {
     sending.value = true;
     error.value = '';
     try {
-        const response = await post('/quotes', { ...JSON.parse(estimateJson.value), contact, request_key: requestKey.value, preview: preview.value.preview });
+        const response = await post('/quotes', {
+            ...JSON.parse(estimateJson.value), contact, request_key: requestKey.value,
+            preview: preview.value.preview, revision_of: props.revision?.reference,
+        });
         const data = await response.json();
         if (response.status === 409 && data.estimate) {
             outdated.value = preview.value;
@@ -111,6 +120,13 @@ async function submit() {
     }
 }
 
+function applyBudget(ids: string[]) {
+    for (const id of ids) {
+        if (id === 'priority') priority.value = 'later';
+        else if (input.addons[id]) input.addons[id].state = 'later';
+    }
+}
+
 function restart() {
     window.location.assign('/');
 }
@@ -119,7 +135,7 @@ function restart() {
 <template>
     <a class="skip-link" href="#builder">Skip to project builder</a>
     <div class="shell">
-        <header class="masthead"><a href="/">Independent developer</a><span>For Filipino businesses</span></header>
+        <header class="masthead"><a href="/">Independent developer</a><a href="/find-estimate">Find my estimate</a></header>
         <section class="intro" aria-labelledby="page-title">
             <div>
                 <h1 id="page-title">Build your project<br class="desktop-break"> &amp; estimate</h1>
@@ -136,11 +152,14 @@ function restart() {
                     </li>
                 </ol>
                 <p v-if="error" role="alert" class="error">{{ error }}</p>
-                <form v-if="step === 0" aria-labelledby="start-title" @submit.prevent="go(1)">
+                <p v-if="revision && !confirmation" class="revision-tag">Revising {{ revision.reference }} <a :href="'/estimates/' + revision.reference">View original</a></p>
+                <p v-if="revision && !revision.available && step === 0">The original starting point is unavailable. Choose a current service to continue with your revision.</p>
+                <p v-if="step === 0 && !Object.keys(catalog.services).length">I’m reviewing the available services. Check back soon for a new estimate.</p>
+                <form v-else-if="step === 0" aria-labelledby="start-title" @submit.prevent="go(1)">
                     <h2 id="start-title" ref="heading" tabindex="-1">How would you like to start?</h2>
                     <fieldset class="choice-grid">
                         <legend class="sr-only">Starting route</legend>
-                        <label class="choice"><input type="radio" name="mode" value="guided" :checked="input.mode === 'guided'" required @change="selectMode('guided')"><span><strong>Help me choose</strong><small>Start with a goal for your business</small></span></label>
+                        <label v-if="Object.keys(catalog.goals).length" class="choice"><input type="radio" name="mode" value="guided" :checked="input.mode === 'guided'" required @change="selectMode('guided')"><span><strong>Help me choose</strong><small>Start with a goal for your business</small></span></label>
                         <label class="choice"><input type="radio" name="mode" value="direct" :checked="input.mode === 'direct'" required @change="selectMode('direct')"><span><strong>I know what I need</strong><small>Pick a service or an installation</small></span></label>
                     </fieldset>
                     <label v-if="input.mode === 'guided'" class="field">What do you want to accomplish?
@@ -228,19 +247,19 @@ function restart() {
                 <section v-else-if="step === 2 && estimate" aria-labelledby="review-title">
                     <h2 id="review-title" ref="heading" tabindex="-1">Review your estimate</h2>
                     <p>I’ll confirm the final scope, price, and delivery date after review.</p>
-                    <details v-if="outdated" class="previous">
-                        <summary>Previous breakdown · {{ outdated.estimate.one_time.length ? money(outdated.estimate.total) : 'Needs review' }}</summary>
-                        <EstimateLines :estimate="outdated.estimate" />
-                    </details>
+                    <EstimateDiff v-if="revision" :before="revision.original" :after="estimate" :retired="revision.retired" heading="Changes from your saved estimate" />
+                    <EstimateDiff v-if="outdated" :before="outdated.estimate" :after="estimate" heading="Changes since your preview" />
                     <div class="review-total"><span>{{ estimate.review.length ? 'Estimated subtotal for priced items' : 'One-time estimate' }}</span><strong>{{ cashLabel }}</strong></div>
                     <EstimateLines :estimate="estimate" />
-                    <div class="actions"><button type="button" class="secondary" @click="go(1)">Back</button><button type="button" @click="outdated = null; error = ''; go(3)">{{ outdated ? 'Confirm updated estimate' : 'Request this quote' }}</button></div>
+                    <BudgetComparison :estimate="estimate" :payload="estimateJson" :addons="catalog.addons" :loading="loading" @apply="applyBudget" />
+                    <p v-if="discoveryUrl && (estimate.question || estimate.review.length)"><a :href="discoveryUrl" rel="noreferrer">Book a discovery call</a></p>
+                    <div class="actions"><button type="button" class="secondary" @click="go(1)">Back</button><button type="button" :disabled="loading || (!!error && !outdated)" @click="outdated = null; error = ''; go(3)">{{ outdated ? 'Confirm updated estimate' : 'Request this quote' }}</button></div>
                 </section>
 
                 <form v-else-if="step === 3" class="field-stack" aria-labelledby="contact-title" @submit.prevent="submit">
                     <h2 id="contact-title" ref="heading" tabindex="-1">Where should I send your estimate?</h2>
                     <label>Your name <input v-model="contact.name" name="name" autocomplete="name" maxlength="120" required></label>
-                    <label>Email address <input v-model="contact.email" name="email" type="email" autocomplete="email" maxlength="254" required></label>
+                    <label>Email address <input v-model="contact.email" name="email" type="email" autocomplete="email" maxlength="254" :readonly="!!revision" required></label>
                     <label>Business name (optional) <input v-model="contact.business" name="business" autocomplete="organization" maxlength="160"></label>
                     <label>Project notes (optional) <textarea v-model="contact.notes" name="notes" rows="4" maxlength="3000"></textarea></label>
                     <div class="actions"><button type="button" class="secondary" @click="go(2)">Back</button><button :disabled="sending">{{ sending ? 'Saving…' : 'Request this quote' }}</button></div>
@@ -253,6 +272,8 @@ function restart() {
                     <p v-else-if="confirmation.delivery === 'Failed'">Your copy couldn’t be sent. Keep this reference for follow-up.</p>
                     <p v-else>Your email copy is pending. Keep this reference for follow-up.</p>
                     <p>I’ll review your brief and follow up about the scope, price, and timing.</p>
+                    <p v-if="confirmation.url"><a :href="confirmation.url">Open your saved revision</a></p>
+                    <p v-else><a href="/find-estimate">Find this estimate later</a></p>
                     <button type="button" class="secondary" @click="restart">Start another estimate</button>
                 </section>
             </article>

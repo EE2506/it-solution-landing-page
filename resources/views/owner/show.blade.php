@@ -7,6 +7,24 @@
 
     @include('quote.breakdown', ['estimate' => $quote->snapshot['estimate']])
 
+    @if ($history->total() > 1)
+        <h2>Estimate history</h2>
+        <ol>
+            @foreach ($history as $version)
+                <li>
+                    <a href="{{ route('owner.show', $version) }}" @if($version->id === $quote->id) aria-current="page" @endif>{{ $version->reference }}</a>
+                    · {{ $version->revises_id ? 'Revision' : 'Original' }} · {{ $version->created_at->timezone('Asia/Manila')->format('m/d/Y') }}
+                </li>
+            @endforeach
+        </ol>
+        @if ($history->hasPages())
+            <nav class="actions" aria-label="Estimate versions">
+                @if ($history->previousPageUrl())<a href="{{ $history->previousPageUrl() }}">Previous versions</a>@endif
+                @if ($history->nextPageUrl())<a href="{{ $history->nextPageUrl() }}">More versions</a>@endif
+            </nav>
+        @endif
+    @endif
+
     <details>
         <summary>Original answers</summary>
         <pre>{{ json_encode($quote->snapshot['answers'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
@@ -16,7 +34,7 @@
     @foreach ($quote->deliveries as $delivery)
         <form method="post" action="{{ route('owner.retry', [$quote, $delivery]) }}" class="actions">
             @csrf
-            <p>{{ ucfirst($delivery->recipient) }} · {{ $delivery->state() }}</p>
+            <p>{{ $delivery->recipient === 'access' ? 'Private link' : ucfirst($delivery->recipient) }} · {{ $delivery->state() }}</p>
             @if ($delivery->failed_at)<button class="secondary">Retry {{ $delivery->recipient }} email</button>@endif
         </form>
     @endforeach

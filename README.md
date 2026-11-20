@@ -1,6 +1,6 @@
 # Build your project & estimate
 
-A quote builder for an independent software developer serving Filipino business owners. Visitors choose a service, shape the scope, and request a quote without an account. The owner reviews saved requests and tracks both email deliveries.
+A quote builder for an independent software developer serving Filipino business owners. Visitors can compare their scope against a budget, request a quote without an account, and retrieve, download, or revise a saved estimate through an expiring private link. The owner reviews requests, manages the catalog, and tracks email deliveries.
 
 ## Local setup
 
@@ -15,7 +15,11 @@ The original HTML is the visual reference. The live builder is served by Laravel
 
 ## Catalog and pricing
 
-Edit [config/quote.php](config/quote.php) for services, installations, inclusions, add-ons, recommendation rules, and rates. Amounts use integer centavos. Keep existing catalog IDs stable and replace the demo rates before launch. The rush percentage applies only to eligible one-time work. If config is cached, rebuild it with `php artisan config:cache` after edits. Saved requests keep their original scope and amounts.
+Use the Catalog page under `/owner` to change rates, availability, included essentials, and priority eligibility. [config/quote.php](config/quote.php) supplies defaults and holds the recommendation rules, stable IDs, and optional add-on dependencies. Code rates use integer centavos. The rush percentage applies only to eligible one-time work. If config is cached, run `php artisan config:cache` after editing defaults. Catalog changes affect new estimates and revisions. Each saved version keeps its original scope and amounts.
+
+## Retrieve and revise estimates
+
+Run `php artisan migrate` when upgrading from V1. Visitors enter their email and reference on Find my estimate. The delivery worker emails a 30-minute link that opens only the matching estimate, including its PDF and revision form. Set `APP_URL` to the public HTTPS address so the worker generates links for the correct host. Set `QUOTE_DISCOVERY_URL` to an optional HTTPS booking link for scopes that need discussion.
 
 ## Gmail and background delivery
 
